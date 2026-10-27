@@ -17,7 +17,6 @@ def pde_residuals(model, r_hat, re_n):
     dpdz = model.dpdz_net(re_n)
     ReR = ReR_from_re_n(re_n)
     r = r_hat * R_PIPE
-
     dU_dr = _d(U, r_hat) 
     dk_dr = _d(k, r_hat)
     deps_dr = _d(eps, r_hat)

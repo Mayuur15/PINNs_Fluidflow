@@ -22,6 +22,7 @@ def sample_collocation(re_cases, n_per_case, device,R_HAT_MAX=1.0):
 def train(csv_path, device='cpu', pretrain_epochs=PRETRAIN_EPOCHS,
           physics_epochs =PHYSICS_EPOCHS, verbose=True):
     data = load_dataset(csv_path, device)
+
     data['re_n'] = normalize_re(data['Re'])
     data['re_n_cases'] = normalize_re(data['Re_cases'])
     scales = {
@@ -30,7 +31,6 @@ def train(csv_path, device='cpu', pretrain_epochs=PRETRAIN_EPOCHS,
     'eres': float((data['eps']**2 / data['k']).mean()),   
     }
     R_HAT_MAX = data['r_hat'].max().item()
-
     model = RANSPINN().to(device)
     opt = torch.optim.Adam(model.parameters(), lr=LR)
     sched = torch.optim.lr_scheduler.StepLR(opt, step_size=500, gamma=0.95)
@@ -44,18 +44,15 @@ def train(csv_path, device='cpu', pretrain_epochs=PRETRAIN_EPOCHS,
         if verbose and epoch % LOG_EVERY == 0:
             print(f"[pretrain {epoch:5d}] "
                   f"U={d['data_U'].item():.3e} k={d['data_k'].item():.3e} "
-                  f"eps(log)={d['data_eps'].item():.3e} dpdz={d['data_dpdz'].item():.3e}")
-                  
+                  f"eps(log)={d['data_eps'].item():.3e} dpdz={d['data_dpdz'].item():.3e}")     
     names = ['data_U', 'data_k', 'data_eps', 'data_dpdz',
               'bc_noslip', 'bc_symmetry', 'mass',
               'pde_mom', 'pde_k', 'pde_eps']
     aw = AdaptiveWeights(names)
     for epoch in range(physics_epochs):
         opt.zero_grad()
-
         d = data_loss(model, data)
         b = bc_loss(model, data['re_n_cases'],R_HAT_MAX)
-        
         m = mass_loss(model, data['re_n_cases'], data['Q_cases'], R_HAT_MAX)
         r_col, re_col = sample_collocation(data['re_n_cases'], N_COLLOCATION, device,R_HAT_MAX=R_HAT_MAX)
         res_mom, res_k, res_eps = pde_residuals(model, r_col, re_col)
@@ -69,7 +66,6 @@ def train(csv_path, device='cpu', pretrain_epochs=PRETRAIN_EPOCHS,
 
         if epoch % REWEIGHT_EVERY == 0:
             aw.update(raw)
-
         loss = aw.weighted_sum(raw)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
